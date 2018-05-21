@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Threading.Tasks;
+using System.Web.Script.Serialization;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -14,6 +15,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
+using BTAccelerator.jsonDefinitions;
 
 namespace BTAccelerator
 {
@@ -22,8 +24,10 @@ namespace BTAccelerator
     /// </summary>
     public partial class MainWindow : Window
     {
+        private const string ConstantsSubDir = @"BattleTech_Data\StreamingAssets\data\constants";
         public MainWindow()
         {
+        
             InitializeComponent();
 
             string uninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
@@ -69,28 +73,60 @@ namespace BTAccelerator
                 return;
             }
 
-            foreach (string jsonFilename in jsonFilenames)
+            foreach (string jsonFilename in jsonFilenames.Where(x=>x.ToLower().EndsWith("json")))
             {
                 DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(MechMovement));
-
+                MechMovement mech;
                 using (FileStream fs = new FileStream(jsonFilename, FileMode.Open))
                 {
-                    MechMovement mech = serializer.ReadObject(fs) as MechMovement;
+                     mech = serializer.ReadObject(fs) as MechMovement;
                     if (mech == null)
                     {
                         MessageBox.Show($"Tried to edit a non mech movement file {Path.GetFileName(jsonFilename)}, bailing");
                         return;
                     }
+
+                    string backup = Path.ChangeExtension(jsonFilename, "bak");
+                
+                    if (!File.Exists(backup))
+                        File.Copy(jsonFilename,backup);
+                        
+                        
+                        
+                        
+                        
+                    
                     mech.WalkVelocity *= multiplier;
                     mech.RunVelocity *= multiplier;
                     mech.SprintVelocity *= multiplier;
                     mech.LimpVelocity *= multiplier;
                     mech.WalkAcceleration *= multiplier;
                     mech.SprintAcceleration *= multiplier;
-                    fs.SetLength(0);
-                    serializer.WriteObject(fs, mech);
+                    
+                    
                 }
+                //serializer.WriteObject(fs, mech);
+                string content = new JavaScriptSerializer().Serialize(mech);
+            File.WriteAllText(jsonFilename,JsonFormatter.FormatOutput(content));
+                
             }
+        }
+
+        private void btnUpdateSoundDelay_Click(object sender, RoutedEventArgs e)
+        {
+            string audioConstantFile = Path.Combine(_BaseDirectory,ConstantsSubDir, "AudioConstants.json");
+            string content = File.ReadAllText(audioConstantFile);
+            AudioConstants ac = new JavaScriptSerializer().Deserialize<AudioConstants>(content);
+            string backup = Path.ChangeExtension(audioConstantFile, "bak");
+            if (!File.Exists(backup))
+                File.Copy(audioConstantFile, backup);
+            ac.AttackPreFireDuration = 0;
+            ac.AttackAfterFireDelay = 0;
+            ac.AttackPreFireDuration = 0;
+            ac.AttackAfterCompletionDuration = 0;
+            ac.audioFadeDuration = 0;
+            content = new JavaScriptSerializer().Serialize(ac);
+            File.WriteAllText(audioConstantFile,JsonFormatter.FormatOutput( content));
         }
     }
 }

@@ -11,7 +11,12 @@
             <ColumnDefinition Width="2*" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <TextBox Height="20" Width="130" Grid.Column="0" Name="txtMultiplier" HorizontalAlignment="Right" ToolTip="Enter a multiplier here" Text="1.0" MaxLength="20" HorizontalContentAlignment="Right"/>
+        <Grid.RowDefinitions>
+            <RowDefinition  />
+            <RowDefinition  />
+        </Grid.RowDefinitions>
+        <TextBox Height="20" Width="130" Grid.Column="0" Name="txtMultiplier" HorizontalAlignment="Right" ToolTip="Enter a multiplier here" Text="1" MaxLength="20" HorizontalContentAlignment="Right"/>
         <Button Name="btnUpdate" HorizontalAlignment="Left" Height="20" Grid.Column="1" Content="Update" Click="btnUpdate_Click"/>
+        <Button Name="btnUpdateSoundDealt" HorizontalAlignment="Left" Height="20" Grid.Column="0" Grid.Row="1" Content="Update Sound Delay" Click="btnUpdateSoundDelay_Click"/>
     </Grid>
 </Window>
