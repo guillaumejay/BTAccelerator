@@ -15,3 +15,4 @@ Also added :
 - Restore original values (hardcoded values for sound delay modifications, restoring backup files for movement)
 - Adding an "Accelerated" property to modified json files, so that restoring backup should not modify files replaced by an official update
 - Minor UI enhancements
+- Check my github repositories for new releases 
