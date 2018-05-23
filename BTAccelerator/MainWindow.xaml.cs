@@ -1,17 +1,18 @@
 ﻿using Microsoft.Win32;
 using System;
-using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Runtime.Serialization.Json;
 using System.Text;
-using System.Threading.Tasks;
 using System.Web.Script.Serialization;
+using System.Web.Script.Services;
+using System.Web.UI;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
@@ -23,15 +24,33 @@ namespace BTAccelerator
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
-    public partial class MainWindow : Window
+    public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        public string LatestTag { get; set; }
+
+        public Visibility CanUpdate => LatestTag != GithubTag? Visibility.Hidden:Visibility.Visible;
+        public Visibility HasUpdate => LatestTag == GithubTag ? Visibility.Hidden : Visibility.Visible;
+        private string GithubUrl => "https://github.com/guillaumejay/BTAccelerator/releases/latest";
+        public string GithubTag { get; set; }
+        public string Status
+        {
+            get => _status;
+            set
+            {
+                _status = value;
+                OnPropertyChanged(nameof(Status));
+            }
+        }
+        private readonly BackgroundWorker worker = new BackgroundWorker();
+
         private string ConstantsSubDir = @"BattleTech_Data\StreamingAssets\data\constants";
         DataContractJsonSerializer MechMovementSerializer = new DataContractJsonSerializer(typeof(MechMovement));
         public MainWindow()
         {
-
             InitializeComponent();
-
+            Version assemblyVersion = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+            string version = $"{assemblyVersion.Major}.{assemblyVersion.Minor}";
+            GithubTag = "v" + version;
             string uninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
             using (RegistryKey rk = Registry.LocalMachine.OpenSubKey(uninstallKey))
             {
@@ -46,9 +65,27 @@ namespace BTAccelerator
                     }
                 }
             }
+            worker.DoWork += Worker_DoWork;
+            worker.RunWorkerAsync();
         }
 
+        private void Worker_DoWork(object sender, DoWorkEventArgs e)
+        {
+            HttpClient client = new HttpClient();
+            HttpResponseMessage response =  client.GetAsync(GithubUrl).Result;
+            response.EnsureSuccessStatusCode();
+            string responseUri = response.RequestMessage.RequestUri.ToString();
+            int pos = responseUri.LastIndexOf("/");
+            LatestTag = responseUri.Substring(pos + 1);
+
+            OnPropertyChanged(nameof(HasUpdate));
+            OnPropertyChanged(nameof(CanUpdate));
+        }
+
+       
+
         private string _BaseDirectory = @"E:\Games\SteamLibrary\steamapps\common\BATTLETECH";
+        private string _status;
 
         private void btnUpdate_Click(object sender, RoutedEventArgs e)
         {
@@ -66,7 +103,7 @@ namespace BTAccelerator
             var jsonFilenames = GetAllMovementFiles();
             if (jsonFilenames == null)
                 return;
-
+            int modified = 0;
             foreach (string jsonFilename in jsonFilenames.Where(x => x.ToLower().EndsWith("json")))
             {
 
@@ -81,7 +118,6 @@ namespace BTAccelerator
                 if (!File.Exists(backup) || string.IsNullOrWhiteSpace(mech.Accelerated))
                     File.Copy(jsonFilename, backup, true);
 
-
                 mech.WalkVelocity *= multiplier;
                 mech.RunVelocity *= multiplier;
                 mech.SprintVelocity *= multiplier;
@@ -90,20 +126,18 @@ namespace BTAccelerator
                 mech.SprintAcceleration *= multiplier;
                 mech.Accelerated = DateTime.Now.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fffffffzzz");
 
-          
-
-            //MechMovementSerializer.WriteObject(fs, mech);
-            string content = new JavaScriptSerializer().Serialize(mech);
-            File.WriteAllText(jsonFilename, JsonFormatter.FormatOutput(content));
+                string content = new JavaScriptSerializer().Serialize(mech);
+                File.WriteAllText(jsonFilename, JsonFormatter.FormatOutput(content));
+                modified++;
+            }
+            Status = $"{modified} mech movement file{(modified > 1 ? "s" : "")} modified";
         }
-
-    }
 
         private MechMovement LoadMechMovement(string jsonFilename)
         {
             using (FileStream fs = new FileStream(jsonFilename, FileMode.Open))
             {
-               var mech = MechMovementSerializer.ReadObject(fs) as MechMovement;
+                var mech = MechMovementSerializer.ReadObject(fs) as MechMovement;
                 if (mech == null)
                 {
                     MessageBox.Show(
@@ -116,6 +150,7 @@ namespace BTAccelerator
 
         private void btnOriginalMovement_Click(object sender, RoutedEventArgs e)
         {
+            int restored = 0;
             var jsonFilenames = GetAllMovementFiles();
             if (jsonFilenames == null)
                 return;
@@ -125,10 +160,13 @@ namespace BTAccelerator
                 var mech = LoadMechMovement(original);
                 if (string.IsNullOrWhiteSpace(mech.Accelerated))
                     continue; // original file has not been accelerated
-                //if (File.Exists(original))
-                    //   File.Delete(original);
-                    File.Copy(backupFile, original, true);
+                              //if (File.Exists(original))
+                              //   File.Delete(original);
+                File.Copy(backupFile, original, true);
+                restored++;
             }
+
+            Status = $"{restored} mech movement file{(restored > 1 ? "s" : "")} restored";
         }
 
         private string[] GetAllMovementFiles()
@@ -144,7 +182,6 @@ namespace BTAccelerator
                 MessageBox.Show($"Movement file list failed: {ex.ToString()}");
                 return null;
             }
-
             return jsonFilenames;
         }
 
@@ -163,6 +200,7 @@ namespace BTAccelerator
             ac.Accelerated = DateTime.Now.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fffffffzzz");
 
             SaveAudioContantsFile(ac);
+            Status = $"Sound delay modified";
         }
 
         private void SaveAudioContantsFile(AudioConstants ac)
@@ -188,25 +226,21 @@ namespace BTAccelerator
             ac.audioFadeDuration = 2.5;
             ac.Accelerated = null;
             SaveAudioContantsFile(ac);
+            Status = $"Sound delay restored";
         }
 
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             txtMultiplier.Text = 2.0.ToString("0.0");
+            Status = "Waiting for orders";
+            Title = "BTAccelerator " + GithubTag;
         }
 
         private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
         {
-
             Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri));
             e.Handled = true;
-
-        }
-
-        private void txtMultiplier_GotFocus(object sender, RoutedEventArgs e)
-        {
-
         }
 
         private void SelectMovement(object sender, RoutedEventArgs e)
@@ -226,6 +260,13 @@ namespace BTAccelerator
                     tb.Focus();
                 }
             }
+        }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
     }
 }

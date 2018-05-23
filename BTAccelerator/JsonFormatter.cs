@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 namespace BTAccelerator
 {
     /// <summary>
+    /// Brcause I do not want to use json.net...
     /// From https://stackoverflow.com/a/23828858
     /// modified to use same spacing as original files
     /// </summary>
