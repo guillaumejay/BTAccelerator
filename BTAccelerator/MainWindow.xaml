@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:BTAccelerator"
         mc:Ignorable="d"
-        Title="BT Accelerator 1.1" Height="135" Width="300" ResizeMode="CanMinimize" Loaded="Window_Loaded">
+        Title="BT Accelerator 2.0" Height="135" Width="300" ResizeMode="CanMinimize" Loaded="Window_Loaded">
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="105*" />
