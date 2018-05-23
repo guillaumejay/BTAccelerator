@@ -11,7 +11,7 @@ I know there's now some debug options (which is why Ciaphas [stopped maintaining
 Also added :
 
 - sound delay modification ([from this reddit thread](https://www.reddit.com/r/Battletechgame/comments/8f6b3l/psa_how_to_really_speed_movement_up_not_from/))
-- backuping every modified files
-- Restore original values (hardcoded value for sound modification, restoring backup for movement)
-- Adding an "Accelerated" property to modified json files, so that restoring backup should not modify files replaced by an update
+- automatically backup every modified file
+- Restore original values (hardcoded values for sound delay modifications, restoring backup files for movement)
+- Adding an "Accelerated" property to modified json files, so that restoring backup should not modify files replaced by an official update
 - Minor UI enhancements
