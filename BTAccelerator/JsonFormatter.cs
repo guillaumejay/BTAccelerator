@@ -1,13 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Text;
 using System.Threading.Tasks;
 
 namespace BTAccelerator
 {
     /// <summary>
-    /// From https://stackoverflow.com/a/23828858 
+    /// From https://stackoverflow.com/a/23828858
+    /// modified to use same spacing as original files
     /// </summary>
     public static class JsonFormatter
     {
@@ -63,8 +61,9 @@ namespace BTAccelerator
                         }
                         else if (character == ':')
                         {
+                            stringBuilder.Append(' ');
                             stringBuilder.Append(character);
-                            stringBuilder.Append('\t');
+                            stringBuilder.Append(' ');
                         }
                         else
                         {

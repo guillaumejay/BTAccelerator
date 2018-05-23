@@ -38,5 +38,8 @@ namespace BTAccelerator
         public double MaxJumpAccel;
         [DataMember]
         public double MaxJumpVerticalAccel;
+
+        [DataMember]
+        public string Accelerated { get; set; }
     }
 }

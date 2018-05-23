@@ -69,6 +69,8 @@ namespace BTAccelerator.jsonDefinitions
             public double ambientVODelay { get; set; }
             public double ambientVOChance { get; set; }
             public bool DEBUG_Always_Play_VO { get; set; }
+
+            public string Accelerated { get; set; }
         }
     }
 

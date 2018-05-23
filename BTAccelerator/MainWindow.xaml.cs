@@ -1,6 +1,7 @@
 ﻿using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization.Json;
@@ -24,10 +25,11 @@ namespace BTAccelerator
     /// </summary>
     public partial class MainWindow : Window
     {
-        private const string ConstantsSubDir = @"BattleTech_Data\StreamingAssets\data\constants";
+        private string ConstantsSubDir = @"BattleTech_Data\StreamingAssets\data\constants";
+        DataContractJsonSerializer MechMovementSerializer = new DataContractJsonSerializer(typeof(MechMovement));
         public MainWindow()
         {
-        
+
             InitializeComponent();
 
             string uninstallKey = @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
@@ -61,6 +63,76 @@ namespace BTAccelerator
                 return;
             }
 
+            var jsonFilenames = GetAllMovementFiles();
+            if (jsonFilenames == null)
+                return;
+
+            foreach (string jsonFilename in jsonFilenames.Where(x => x.ToLower().EndsWith("json")))
+            {
+
+                MechMovement mech = LoadMechMovement(jsonFilename);
+                if (mech == null)
+                {
+                    break;
+                }
+
+                string backup = Path.ChangeExtension(jsonFilename, "bak");
+
+                if (!File.Exists(backup) || string.IsNullOrWhiteSpace(mech.Accelerated))
+                    File.Copy(jsonFilename, backup, true);
+
+
+                mech.WalkVelocity *= multiplier;
+                mech.RunVelocity *= multiplier;
+                mech.SprintVelocity *= multiplier;
+                mech.LimpVelocity *= multiplier;
+                mech.WalkAcceleration *= multiplier;
+                mech.SprintAcceleration *= multiplier;
+                mech.Accelerated = DateTime.Now.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fffffffzzz");
+
+          
+
+            //MechMovementSerializer.WriteObject(fs, mech);
+            string content = new JavaScriptSerializer().Serialize(mech);
+            File.WriteAllText(jsonFilename, JsonFormatter.FormatOutput(content));
+        }
+
+    }
+
+        private MechMovement LoadMechMovement(string jsonFilename)
+        {
+            using (FileStream fs = new FileStream(jsonFilename, FileMode.Open))
+            {
+               var mech = MechMovementSerializer.ReadObject(fs) as MechMovement;
+                if (mech == null)
+                {
+                    MessageBox.Show(
+                        $"Tried to edit a non mech movement file {Path.GetFileName(jsonFilename)}, bailing");
+                    return null;
+                }
+                return mech;
+            }
+        }
+
+        private void btnOriginalMovement_Click(object sender, RoutedEventArgs e)
+        {
+            var jsonFilenames = GetAllMovementFiles();
+            if (jsonFilenames == null)
+                return;
+            foreach (string backupFile in jsonFilenames.Where(x => x.ToLower().EndsWith("bak")))
+            {
+                string original = Path.ChangeExtension(backupFile, "json");
+                var mech = LoadMechMovement(original);
+                if (string.IsNullOrWhiteSpace(mech.Accelerated))
+                    continue; // original file has not been accelerated
+                //if (File.Exists(original))
+                    //   File.Delete(original);
+                    File.Copy(backupFile, original, true);
+            }
+        }
+
+        private string[] GetAllMovementFiles()
+        {
             string movementSubdir = @"BattleTech_Data\StreamingAssets\data\movement";
             string[] jsonFilenames;
             try
@@ -69,64 +141,91 @@ namespace BTAccelerator
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"JSON file list failed: {ex.ToString()}");
-                return;
+                MessageBox.Show($"Movement file list failed: {ex.ToString()}");
+                return null;
             }
 
-            foreach (string jsonFilename in jsonFilenames.Where(x=>x.ToLower().EndsWith("json")))
-            {
-                DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(MechMovement));
-                MechMovement mech;
-                using (FileStream fs = new FileStream(jsonFilename, FileMode.Open))
-                {
-                     mech = serializer.ReadObject(fs) as MechMovement;
-                    if (mech == null)
-                    {
-                        MessageBox.Show($"Tried to edit a non mech movement file {Path.GetFileName(jsonFilename)}, bailing");
-                        return;
-                    }
-
-                    string backup = Path.ChangeExtension(jsonFilename, "bak");
-                
-                    if (!File.Exists(backup))
-                        File.Copy(jsonFilename,backup);
-                        
-                        
-                        
-                        
-                        
-                    
-                    mech.WalkVelocity *= multiplier;
-                    mech.RunVelocity *= multiplier;
-                    mech.SprintVelocity *= multiplier;
-                    mech.LimpVelocity *= multiplier;
-                    mech.WalkAcceleration *= multiplier;
-                    mech.SprintAcceleration *= multiplier;
-                    
-                    
-                }
-                //serializer.WriteObject(fs, mech);
-                string content = new JavaScriptSerializer().Serialize(mech);
-            File.WriteAllText(jsonFilename,JsonFormatter.FormatOutput(content));
-                
-            }
+            return jsonFilenames;
         }
 
+        string AudioConstantFile => Path.Combine(_BaseDirectory, ConstantsSubDir, "AudioConstants.json");
         private void btnUpdateSoundDelay_Click(object sender, RoutedEventArgs e)
         {
-            string audioConstantFile = Path.Combine(_BaseDirectory,ConstantsSubDir, "AudioConstants.json");
-            string content = File.ReadAllText(audioConstantFile);
-            AudioConstants ac = new JavaScriptSerializer().Deserialize<AudioConstants>(content);
-            string backup = Path.ChangeExtension(audioConstantFile, "bak");
+            AudioConstants ac = LoadAudioConstantFile();
+            string backup = Path.ChangeExtension(AudioConstantFile, "bak");
             if (!File.Exists(backup))
-                File.Copy(audioConstantFile, backup);
+                File.Copy(AudioConstantFile, backup);
             ac.AttackPreFireDuration = 0;
             ac.AttackAfterFireDelay = 0;
             ac.AttackPreFireDuration = 0;
             ac.AttackAfterCompletionDuration = 0;
             ac.audioFadeDuration = 0;
-            content = new JavaScriptSerializer().Serialize(ac);
-            File.WriteAllText(audioConstantFile,JsonFormatter.FormatOutput( content));
+            ac.Accelerated = DateTime.Now.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fffffffzzz");
+
+            SaveAudioContantsFile(ac);
+        }
+
+        private void SaveAudioContantsFile(AudioConstants ac)
+        {
+            string content = new JavaScriptSerializer().Serialize(ac);
+            File.WriteAllText(AudioConstantFile, JsonFormatter.FormatOutput(content));
+        }
+
+        private AudioConstants LoadAudioConstantFile()
+        {
+            string content = File.ReadAllText(AudioConstantFile);
+            var ac = new JavaScriptSerializer().Deserialize<AudioConstants>(content);
+            return ac;
+        }
+
+        private void btnOriginalSoundDelay_Click(object sender, RoutedEventArgs e)
+        {
+            AudioConstants ac = LoadAudioConstantFile();
+            ac.AttackPreFireDuration = 1;
+            ac.AttackAfterFireDelay = 0.5;
+            ac.AttackPreFireDuration = 1;
+            ac.AttackAfterCompletionDuration = 2;
+            ac.audioFadeDuration = 2.5;
+            ac.Accelerated = null;
+            SaveAudioContantsFile(ac);
+        }
+
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            txtMultiplier.Text = 2.0.ToString("0.0");
+        }
+
+        private void Hyperlink_RequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+
+            Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri));
+            e.Handled = true;
+
+        }
+
+        private void txtMultiplier_GotFocus(object sender, RoutedEventArgs e)
+        {
+
+        }
+
+        private void SelectMovement(object sender, RoutedEventArgs e)
+        {
+            TextBox tb = (sender as TextBox);
+            tb?.SelectAll();
+        }
+
+        private void SelectivelyIgnoreMouseButton(object sender, MouseButtonEventArgs e)
+        {
+            TextBox tb = (sender as TextBox);
+            if (tb != null)
+            {
+                if (!tb.IsKeyboardFocusWithin)
+                {
+                    e.Handled = true;
+                    tb.Focus();
+                }
+            }
         }
     }
 }
